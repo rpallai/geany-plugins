@@ -73,6 +73,7 @@ static gint 				CONFIG_SHOW_BARS			= 1;
 static gboolean 			CONFIG_CHROOT_ON_DCLICK		= FALSE;
 static gboolean 			CONFIG_FOLLOW_CURRENT_DOC 	= TRUE;
 static gboolean 			CONFIG_ON_DELETE_CLOSE_FILE = TRUE;
+static gboolean 			CONFIG_ON_OPEN_FOCUS_EDITOR = FALSE;
 static gboolean 			CONFIG_SHOW_TREE_LINES 		= TRUE;
 static gboolean 			CONFIG_SHOW_BOOKMARKS 		= FALSE;
 static gint 				CONFIG_SHOW_ICONS 			= 2;
@@ -1519,8 +1520,11 @@ on_treeview_row_activated(GtkWidget *widget, GtkTreePath *path, GtkTreeViewColum
 				treebrowser_browse(uri, &iter);
 				gtk_tree_view_expand_row(GTK_TREE_VIEW(widget), path, FALSE);
 			}
-	else
+	else {
 		document_open_file(uri, FALSE, NULL, NULL);
+		if (CONFIG_ON_OPEN_FOCUS_EDITOR)
+			keybindings_send_command(GEANY_KEY_GROUP_FOCUS, GEANY_KEYS_FOCUS_EDITOR);
+	}
 
 	g_free(uri);
 }
@@ -1800,6 +1804,7 @@ static struct
 	GtkWidget *CHROOT_ON_DCLICK;
 	GtkWidget *FOLLOW_CURRENT_DOC;
 	GtkWidget *ON_DELETE_CLOSE_FILE;
+	GtkWidget *ON_OPEN_FOCUS_EDITOR;
 	GtkWidget *SHOW_TREE_LINES;
 	GtkWidget *SHOW_BOOKMARKS;
 	GtkWidget *SHOW_ICONS;
@@ -1822,6 +1827,7 @@ load_settings(void)
 	CONFIG_CHROOT_ON_DCLICK 		= utils_get_setting_boolean(config, "treebrowser", "chroot_on_dclick", 		CONFIG_CHROOT_ON_DCLICK);
 	CONFIG_FOLLOW_CURRENT_DOC 		= utils_get_setting_boolean(config, "treebrowser", "follow_current_doc", 	CONFIG_FOLLOW_CURRENT_DOC);
 	CONFIG_ON_DELETE_CLOSE_FILE 	= utils_get_setting_boolean(config, "treebrowser", "on_delete_close_file", 	CONFIG_ON_DELETE_CLOSE_FILE);
+	CONFIG_ON_OPEN_FOCUS_EDITOR		= utils_get_setting_boolean(config, "treebrowser", "on_open_focus_editor", 	CONFIG_ON_OPEN_FOCUS_EDITOR);
 	CONFIG_SHOW_TREE_LINES 			= utils_get_setting_boolean(config, "treebrowser", "show_tree_lines", 		CONFIG_SHOW_TREE_LINES);
 	CONFIG_SHOW_BOOKMARKS 			= utils_get_setting_boolean(config, "treebrowser", "show_bookmarks", 		CONFIG_SHOW_BOOKMARKS);
 	CONFIG_SHOW_ICONS 				= utils_get_setting_integer(config, "treebrowser", "show_icons", 			CONFIG_SHOW_ICONS);
@@ -1853,6 +1859,7 @@ save_settings(void)
 	g_key_file_set_boolean(config, 	"treebrowser", "chroot_on_dclick", 		CONFIG_CHROOT_ON_DCLICK);
 	g_key_file_set_boolean(config, 	"treebrowser", "follow_current_doc", 	CONFIG_FOLLOW_CURRENT_DOC);
 	g_key_file_set_boolean(config, 	"treebrowser", "on_delete_close_file", 	CONFIG_ON_DELETE_CLOSE_FILE);
+	g_key_file_set_boolean(config, 	"treebrowser", "on_open_focus_editor", 	CONFIG_ON_OPEN_FOCUS_EDITOR);
 	g_key_file_set_boolean(config, 	"treebrowser", "show_tree_lines", 		CONFIG_SHOW_TREE_LINES);
 	g_key_file_set_boolean(config, 	"treebrowser", "show_bookmarks", 		CONFIG_SHOW_BOOKMARKS);
 	g_key_file_set_integer(config, 	"treebrowser", "show_icons", 			CONFIG_SHOW_ICONS);
@@ -1883,6 +1890,7 @@ on_configure_response(GtkDialog *dialog, gint response, gpointer user_data)
 	CONFIG_CHROOT_ON_DCLICK 	= gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(configure_widgets.CHROOT_ON_DCLICK));
 	CONFIG_FOLLOW_CURRENT_DOC 	= gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(configure_widgets.FOLLOW_CURRENT_DOC));
 	CONFIG_ON_DELETE_CLOSE_FILE = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(configure_widgets.ON_DELETE_CLOSE_FILE));
+	CONFIG_ON_OPEN_FOCUS_EDITOR	= gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(configure_widgets.ON_OPEN_FOCUS_EDITOR));
 	CONFIG_SHOW_TREE_LINES 		= gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(configure_widgets.SHOW_TREE_LINES));
 	CONFIG_SHOW_BOOKMARKS 		= gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(configure_widgets.SHOW_BOOKMARKS));
 	CONFIG_SHOW_ICONS 			= gtk_combo_box_get_active(GTK_COMBO_BOX(configure_widgets.SHOW_ICONS));
@@ -1985,6 +1993,11 @@ plugin_configure(GtkDialog *dialog)
 	gtk_button_set_focus_on_click(GTK_BUTTON(configure_widgets.ON_DELETE_CLOSE_FILE), FALSE);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(configure_widgets.ON_DELETE_CLOSE_FILE), CONFIG_ON_DELETE_CLOSE_FILE);
 	gtk_box_pack_start(GTK_BOX(vbox), configure_widgets.ON_DELETE_CLOSE_FILE, FALSE, FALSE, 0);
+
+	configure_widgets.ON_OPEN_FOCUS_EDITOR = gtk_check_button_new_with_label(_("On open file, focus editor"));
+	gtk_button_set_focus_on_click(GTK_BUTTON(configure_widgets.ON_OPEN_FOCUS_EDITOR), FALSE);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(configure_widgets.ON_OPEN_FOCUS_EDITOR), CONFIG_ON_OPEN_FOCUS_EDITOR);
+	gtk_box_pack_start(GTK_BOX(vbox), configure_widgets.ON_OPEN_FOCUS_EDITOR, FALSE, FALSE, 0);
 
 	configure_widgets.SHOW_TREE_LINES = gtk_check_button_new_with_label(_("Show tree lines"));
 	gtk_button_set_focus_on_click(GTK_BUTTON(configure_widgets.SHOW_TREE_LINES), FALSE);
