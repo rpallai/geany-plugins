@@ -1075,13 +1075,26 @@ get_commit_diff(GtkTreeView * treeview)
 }
 
 static void
-set_diff_buff(GtkTextBuffer * buffer, const gchar * txt)
+set_diff_buff(GtkWidget * textview, GtkTextBuffer * buffer, const gchar * txt)
 {
 	GtkTextIter start, end;
 	GtkTextMark *mark;
 	gchar *filename;
 	const gchar *tagname = "";
 	const gchar *c, *p = txt;
+
+	if (strlen(txt) > COMMIT_DIFF_MAXLENGTH)
+	{
+		gtk_text_buffer_set_text(buffer,
+			_("The resulting differences cannot be displayed because "
+			  "the changes are too big to display here and would slow down the UI significantly."
+			  "\n\n"
+			  "To view the differences, cancel this dialog and open the differences "
+			  "in Geany directly by using the GeanyVC menu (Base Dirrectory -> Diff)."), -1);
+		gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(textview), GTK_WRAP_WORD);
+		return;
+	}
+	gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(textview), GTK_WRAP_NONE);
 
 	gtk_text_buffer_set_text(buffer, txt, -1);
 
@@ -1152,7 +1165,7 @@ refresh_diff_view(GtkTreeView *treeview)
 	gchar *diff;
 	GtkWidget *diffView = ui_lookup_widget(GTK_WIDGET(treeview), "textDiff");
 	diff = get_commit_diff(GTK_TREE_VIEW(treeview));
-	set_diff_buff(gtk_text_view_get_buffer(GTK_TEXT_VIEW(diffView)), diff);
+	set_diff_buff(diffView, gtk_text_view_get_buffer(GTK_TEXT_VIEW(diffView)), diff);
 	g_free(diff);
 }
 
@@ -1288,6 +1301,26 @@ static void commit_tree_selection_changed_cb(GtkTreeSelection *sel, GtkTextView 
 	g_free(path);
 }
 
+static gboolean commit_text_line_number_update_cb(GtkWidget *widget, GdkEvent *event,
+												  gpointer user_data)
+{
+	GtkWidget *text_view = widget;
+	GtkLabel *line_column_label = GTK_LABEL(user_data);
+	GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view));
+	GtkTextMark *mark = gtk_text_buffer_get_insert(buffer);
+	GtkTextIter iter;
+	gint line, column;
+	gchar text[64];
+
+	gtk_text_buffer_get_iter_at_mark(buffer, &iter, mark);
+	line = gtk_text_iter_get_line(&iter) + 1;
+	column = gtk_text_iter_get_line_offset(&iter);
+
+	g_snprintf(text, sizeof(text), _("Line: %d Column: %d"), line, column);
+	gtk_label_set_text(line_column_label, text);
+
+	return FALSE;
+}
 
 static GtkWidget *
 create_commitDialog(void)
@@ -1310,6 +1343,8 @@ create_commitDialog(void)
 	GtkWidget *btnCancel;
 	GtkWidget *btnCommit;
 	GtkWidget *select_cbox;
+	GtkWidget *commit_text_vbox;
+	GtkWidget *lineColumnLabel;
 	GtkTreeSelection *sel;
 
 	gchar *rcstyle = g_strdup_printf("style \"geanyvc-diff-font\"\n"
@@ -1395,13 +1430,16 @@ create_commitDialog(void)
 	gtk_container_add(GTK_CONTAINER(frame1), alignment1);
 	gtk_alignment_set_padding(GTK_ALIGNMENT(alignment1), 0, 0, 12, 0);
 
+	commit_text_vbox = gtk_vbox_new(FALSE, 0);
+	gtk_widget_show(commit_text_vbox);
+	gtk_container_add(GTK_CONTAINER(alignment1), commit_text_vbox);
+
 	scrolledwindow3 = gtk_scrolled_window_new(NULL, NULL);
 	gtk_widget_show(scrolledwindow3);
-	gtk_container_add(GTK_CONTAINER(alignment1), scrolledwindow3);
+	gtk_box_pack_start(GTK_BOX(commit_text_vbox), scrolledwindow3, TRUE, TRUE, 0);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolledwindow3), GTK_POLICY_AUTOMATIC,
 				       GTK_POLICY_AUTOMATIC);
 	gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scrolledwindow3), GTK_SHADOW_IN);
-
 
 	textCommitMessage = gtk_text_view_new();
 	gtk_widget_show(textCommitMessage);
@@ -1414,6 +1452,12 @@ create_commitDialog(void)
 	gtk_widget_show(label1);
 	gtk_frame_set_label_widget(GTK_FRAME(frame1), label1);
 	gtk_label_set_use_markup(GTK_LABEL(label1), TRUE);
+
+	/* line/column status label */
+	lineColumnLabel = gtk_label_new("");
+	gtk_misc_set_alignment(GTK_MISC(lineColumnLabel), 0, 0.5);
+	gtk_box_pack_end(GTK_BOX(commit_text_vbox), lineColumnLabel, TRUE, TRUE, 0);
+	gtk_widget_show(lineColumnLabel);
 
 	dialog_action_area1 = GTK_DIALOG(commitDialog)->action_area;
 	gtk_widget_show(dialog_action_area1);
@@ -1430,6 +1474,13 @@ create_commitDialog(void)
 	sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(treeSelect));
 	gtk_tree_selection_set_mode(sel, GTK_SELECTION_SINGLE);
 	g_signal_connect(sel, "changed", G_CALLBACK(commit_tree_selection_changed_cb), textDiff);
+
+	g_signal_connect(textCommitMessage, "key-release-event",
+		G_CALLBACK(commit_text_line_number_update_cb), lineColumnLabel);
+	g_signal_connect(textCommitMessage, "button-release-event",
+		G_CALLBACK(commit_text_line_number_update_cb), lineColumnLabel);
+	/* initial setup */
+	commit_text_line_number_update_cb(textCommitMessage, NULL, lineColumnLabel);
 
 	/* Store pointers to all widgets, for use by lookup_widget(). */
 	GLADE_HOOKUP_OBJECT_NO_REF(commitDialog, commitDialog, "commitDialog");
@@ -1523,7 +1574,7 @@ vccommit_activated(G_GNUC_UNUSED GtkMenuItem * menuitem, G_GNUC_UNUSED gpointer 
 	gtk_text_buffer_create_tag(diffbuf, "invisible", "invisible",
 				   TRUE, NULL);
 
-	set_diff_buff(diffbuf, diff);
+	set_diff_buff(diffView, diffbuf, diff);
 
 	if (set_maximize_commit_dialog)
 	{
@@ -1748,7 +1799,7 @@ on_configure_response(G_GNUC_UNUSED GtkDialog * dialog, gint response,
 			gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widgets.cb_confirm_add));
 		set_maximize_commit_dialog =
 			gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widgets.cb_max_commit));
-		
+
 		set_external_diff =
 			gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widgets.cb_external_diff));
 
@@ -1879,7 +1930,7 @@ plugin_configure(GtkDialog * dialog)
 			       "inside tools menu or directly inside Geany's menubar."
 			       "Will take in account after next start of GeanyVC"));
 	gtk_button_set_focus_on_click(GTK_BUTTON(widgets.cb_attach_to_menubar), FALSE);
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widgets.cb_attach_to_menubar), 
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widgets.cb_attach_to_menubar),
 		set_menubar_entry);
 	gtk_box_pack_start(GTK_BOX(vbox), widgets.cb_attach_to_menubar, TRUE, FALSE, 2);
 
@@ -2241,7 +2292,7 @@ plugin_init(G_GNUC_UNUSED GeanyData * data)
 	GtkWidget *menu_vc_file = NULL;
 	GtkWidget *menu_vc_dir = NULL;
 	GtkWidget *menu_vc_basedir = NULL;
-	
+
 	config_file =
 		g_strconcat(geany->app->configdir, G_DIR_SEPARATOR_S, "plugins", G_DIR_SEPARATOR_S,
 			    "VC", G_DIR_SEPARATOR_S, "VC.conf", NULL);
@@ -2253,7 +2304,7 @@ plugin_init(G_GNUC_UNUSED GeanyData * data)
 	if (set_menubar_entry == TRUE)
 	{
 		GtkMenuShell *menubar;
-		
+
 		menubar = GTK_MENU_SHELL(
 				ui_lookup_widget(geany->main_widgets->window, "menubar1"));
 

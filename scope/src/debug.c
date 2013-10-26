@@ -307,7 +307,7 @@ static gboolean source_dispatch(G_GNUC_UNUSED GSource *source,
 		else
 		{
 			reading_pos++;
-			leading_receive = FALSE;
+			leading_receive = TRUE;
 		}
 	}
 
@@ -325,7 +325,7 @@ static gboolean source_dispatch(G_GNUC_UNUSED GSource *source,
 	}
 
 	reading_pos = received->str;
- 	result = waitpid(gdb_pid, &status, WNOHANG);
+	result = waitpid(gdb_pid, &status, WNOHANG);
 
 	if (result == 0)
 	{
@@ -431,6 +431,7 @@ void on_debug_loaded(GArray *nodes)
 	{
 		breaks_apply();
 		inspects_apply();
+		view_dirty(VIEW_WATCHES);
 
 		if (program_temp_breakpoint)
 		{
@@ -581,6 +582,7 @@ static void load_program(void)
 			if (option_open_panel_on_load)
 				open_debug_panel();
 
+			registers_query_names();
 			debug_send_commands();
 		}
 		else
@@ -729,18 +731,18 @@ void debug_send_format(gint tf, const char *format, ...)
 char *debug_send_evaluate(char token, gint scid, const gchar *expr)
 {
 	char *locale = utils_get_locale_from_utf8(expr);
-	GString *string = g_string_sized_new(strlen(locale));
+	GString *escaped = g_string_sized_new(strlen(locale));
 	const char *s;
 
 	for (s = locale; *s; s++)
 	{
 		if (*s == '"' || *s == '\\')
-			g_string_append_c(string, '\\');
-		g_string_append_c(string, *s);
+			g_string_append_c(escaped, '\\');
+		g_string_append_c(escaped, *s);
 	}
 
-	debug_send_format(F, "0%c%d-data-evaluate-expression \"%s\"", token, scid, string->str);
-	g_string_free(string, TRUE);
+	debug_send_format(F, "0%c%d-data-evaluate-expression \"%s\"", token, scid, escaped->str);
+	g_string_free(escaped, TRUE);
 	return locale;
 }
 

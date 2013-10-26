@@ -32,7 +32,7 @@ GeanyFunctions *geany_functions;
 PLUGIN_VERSION_CHECK(215)
 
 PLUGIN_SET_TRANSLATABLE_INFO(LOCALEDIR, GETTEXT_PACKAGE, _("Scope Debugger"),
-	_("Relatively simple GDB front-end."), "0.88" ,
+	_("Relatively simple GDB front-end."), "0.93",
 	"Dimitar Toshkov Zhekov <dimitar.zhekov@gmail.com>")
 
 /* Keybinding(s) */
@@ -205,6 +205,8 @@ static void toolbar_update_state(DebugState state)
 			gtk_widget_set_sensitive(item->widget,
 				menu_item_matches_state(debug_menu_items + item->index, state));
 		}
+
+		last_state = state;
 	}
 }
 
@@ -212,6 +214,8 @@ static GtkStatusbar *geany_statusbar;
 static GtkWidget *debug_statusbar;
 static GtkLabel *debug_state_label;
 
+static DebugState last_statusbar_state;
+ 
 void statusbar_update_state(DebugState state)
 {
 	static DebugState last_state = DS_INACTIVE;
@@ -310,9 +314,9 @@ static void on_document_open(G_GNUC_UNUSED GObject *obj, GeanyDocument *doc,
 		threads_mark(doc);
 }
 
-static guint resync_id = 0;
+static guint saved_id = 0;
 
-static gboolean resync_readonly(G_GNUC_UNUSED gpointer gdata)
+static gboolean settings_saved(gpointer gdata)
 {
 	guint i;
 
@@ -322,30 +326,40 @@ static gboolean resync_readonly(G_GNUC_UNUSED gpointer gdata)
 			SCI_GETREADONLY, 0, 0);
 	}
 
-	resync_id = 0;
+	if (GPOINTER_TO_INT(gdata))
+	{
+		conterm_load_config();
+		conterm_apply_config();
+	}
+
+	saved_id = 0;
 	return FALSE;
 }
 
-static void unlock_readonly(void)
+static void schedule_settings_saved(gboolean conterm)
 {
 	guint i;
+
+	saved_id = plugin_idle_add(geany_plugin, settings_saved, GINT_TO_POINTER(conterm));
 
 	foreach_document(i)
 	{
 		if (utils_attrib(documents[i], SCOPE_LOCK))
-		{
 			documents[i]->readonly = FALSE;
-
-			if (!resync_id)
-				resync_id = plugin_idle_add(geany_plugin, resync_readonly, NULL);
-		}
 	}
 }
 
-static void on_session_save(G_GNUC_UNUSED GObject *obj, G_GNUC_UNUSED GKeyFile *keyfile,
+static void on_settings_save(G_GNUC_UNUSED GObject *obj, G_GNUC_UNUSED GKeyFile *keyfile,
 	G_GNUC_UNUSED gpointer gdata)
 {
-	unlock_readonly();
+	configure_panel();
+	schedule_settings_saved(TRUE);
+}
+
+static void on_project_before_save(G_GNUC_UNUSED GObject *obj, G_GNUC_UNUSED GKeyFile *keyfile,
+	G_GNUC_UNUSED gpointer gdata)
+{
+	schedule_settings_saved(FALSE);
 }
 
 static gboolean on_editor_notify(G_GNUC_UNUSED GObject *obj, GeanyEditor *editor,
@@ -371,7 +385,15 @@ static gboolean on_editor_notify(G_GNUC_UNUSED GObject *obj, GeanyEditor *editor
 static void on_document_filetype_set(G_GNUC_UNUSED GObject *obj, GeanyDocument *doc,
 	G_GNUC_UNUSED GeanyFiletype *filetype_old, G_GNUC_UNUSED gpointer gdata)
 {
-	utils_lock_unlock(doc, debug_state() != DS_INACTIVE && utils_source_document(doc));
+	DebugState state = debug_state();
+	utils_lock_unlock(doc, state != DS_INACTIVE && utils_source_document(doc));
+	toolbar_update_state(state);
+}
+
+static void on_document_activate(G_GNUC_UNUSED GObject *obj, G_GNUC_UNUSED GeanyDocument *doc,
+	G_GNUC_UNUSED gpointer user_data)
+{
+	toolbar_update_state(debug_state());
 }
 
 static void on_project_open(G_GNUC_UNUSED GObject *obj, G_GNUC_UNUSED GKeyFile *config)
@@ -416,10 +438,12 @@ static const ScopeCallback scope_callbacks[] =
 	{ "document-new",             G_CALLBACK(on_document_new) },
 	{ "document-open",            G_CALLBACK(on_document_open) },
 	{ "document-reload",          G_CALLBACK(on_document_open) },
-	{ "save-settings",            G_CALLBACK(on_session_save) },
+	{ "save-settings",            G_CALLBACK(on_settings_save) },
 	{ "editor-notify",            G_CALLBACK(on_editor_notify) },
 	{ "document-filetype-set",    G_CALLBACK(on_document_filetype_set) },
-	{ "project-before-save",      G_CALLBACK(on_session_save) },
+	{ "document-activate",        G_CALLBACK(on_document_activate) },
+	{ "document-save",            G_CALLBACK(on_document_activate) },
+	{ "project-before-save",      G_CALLBACK(on_project_before_save) },
 	{ "project-open",             G_CALLBACK(on_project_open) },
 	{ "project-close",            G_CALLBACK(on_project_close) },
 	{ "geany-startup-complete",   G_CALLBACK(on_geany_startup_complete) },
@@ -427,7 +451,7 @@ static const ScopeCallback scope_callbacks[] =
 	{ NULL, NULL }
 };
 
-static GtkBuilder *builder = NULL;
+static GtkBuilder *builder;
 
 GObject *get_object(const char *name)
 {
@@ -463,7 +487,7 @@ GtkWidget *get_widget(const char *name)
 #endif  /* G_DISABLE_ASSERT */
 }
 
-void scope_configure(void)
+void configure_toolbar(void)
 {
 	guint item;
 	ToolItem *tool_item = toolbar_items;
@@ -490,6 +514,22 @@ void open_debug_panel(void)
 	gtk_widget_grab_focus(debug_panel);
 }
 
+void configure_panel(void)
+{
+	gboolean short_tab_names = pref_panel_tab_pos == GTK_POS_LEFT ||
+		pref_panel_tab_pos == GTK_POS_RIGHT ||
+		geany_data->interface_prefs->msgwin_orientation == GTK_ORIENTATION_HORIZONTAL;
+
+	gtk_label_set_label(GTK_LABEL(get_widget("program_terminal_label")),
+		short_tab_names ? _("Program") : _("Program Terminal"));
+	gtk_label_set_label(GTK_LABEL(get_widget("break_view_label")),
+		short_tab_names ? _("Breaks") : _("Breakpoints"));
+	gtk_label_set_label(GTK_LABEL(get_widget("debug_console_label")),
+		short_tab_names ? _("Console") : _("Debug Console"));
+
+	gtk_notebook_set_tab_pos(GTK_NOTEBOOK(debug_panel), pref_panel_tab_pos);
+}
+
 void plugin_init(G_GNUC_UNUSED GeanyData *gdata)
 {
 	GeanyKeyGroup *scope_key_group;
@@ -505,12 +545,7 @@ void plugin_init(G_GNUC_UNUSED GeanyData *gdata)
 	scope_key_group = plugin_set_key_group(geany_plugin, "scope", COUNT_KB, NULL);
 	builder = gtk_builder_new();
 	gtk_builder_set_translation_domain(builder, GETTEXT_PACKAGE);
-
-	if (!g_type_from_name("ScpTreeStore"))
-	{
-		plugin_module_make_resident(geany_plugin);
-		scp_tree_store_get_type();
-	}
+	scp_tree_store_register_dynamic();
 
 	if (!gtk_builder_add_from_file(builder, gladefile, &gerror))
 	{
@@ -557,9 +592,9 @@ void plugin_init(G_GNUC_UNUSED GeanyData *gdata)
 	gtk216_init();
 	program_init();
 	prefs_init();
-	gtk_notebook_set_tab_pos(GTK_NOTEBOOK(debug_panel), pref_panel_tab_pos);
 	conterm_init();
 	inspect_init();
+	register_init();
 	parse_init();
 	debug_init();
 	views_init();
@@ -589,7 +624,7 @@ void plugin_init(G_GNUC_UNUSED GeanyData *gdata)
 
 	toolbar_update_state(DS_INACTIVE);
 	views_update_state(DS_INACTIVE);
-	scope_configure();
+	configure_toolbar();
 
 	g_signal_connect(debug_panel, "switch-page", G_CALLBACK(on_view_changed), NULL);
 	for (scb = scope_callbacks; scb->name; scb++)
@@ -613,6 +648,7 @@ void plugin_cleanup(void)
 	tooltip_finalize();
 	program_finalize();
 	conterm_finalize();
+	registers_finalize();
 	inspect_finalize();
 	thread_finalize();
 	break_finalize();

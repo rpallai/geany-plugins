@@ -12,6 +12,9 @@ addons/src/ao_wrapwords.c
 addons/src/ao_doclist.c
 addons/src/addons.c
 
+# Autoclose
+autoclose/src/autoclose.c
+
 # codenav
 codenav/src/codenavigation.c
 codenav/src/goto_file.c
@@ -48,6 +51,9 @@ debugger/src/pixbuf.c
 debugger/src/pixbuf.h
 debugger/src/atree.h
 debugger/src/atree.c
+
+# defineformat
+defineformat/src/defineformat.c
 
 # devhelp
 devhelp/src/dhp.h
@@ -183,6 +189,9 @@ geanyprj/src/project.c
 geanyprj/src/sidebar.c
 geanyprj/src/utils.c
 geanyprj/src/xproject.c
+
+# Geanypy
+geanypy/src/geanypy-plugin.c
 
 # geanysendmail
 geanysendmail/src/geanysendmail.c

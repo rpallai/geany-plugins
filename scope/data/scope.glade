@@ -1197,6 +1197,99 @@
       </object>
     </child>
   </object>
+  <object class="GtkMenu" id="register_menu">
+    <child>
+      <object class="GtkImageMenuItem" id="register_refresh">
+        <property name="label">gtk-refresh</property>
+        <property name="visible">True</property>
+        <property name="use_underline">True</property>
+        <property name="use_stock">True</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkSeparatorMenuItem" id="register_separator1">
+        <property name="visible">True</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkImageMenuItem" id="register_copy">
+        <property name="label">gtk-copy</property>
+        <property name="visible">True</property>
+        <property name="use_underline">True</property>
+        <property name="use_stock">True</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem" id="register_format">
+        <property name="visible">True</property>
+        <property name="label" translatable="yes">_Format</property>
+        <property name="use_underline">True</property>
+        <child type="submenu">
+          <object class="GtkMenu" id="register_format_menu">
+            <child>
+              <object class="GtkRadioMenuItem" id="register_format_natural">
+                <property name="visible">True</property>
+                <property name="label" translatable="yes">_Natural</property>
+                <property name="use_underline">True</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkRadioMenuItem" id="register_format_hex">
+                <property name="visible">True</property>
+                <property name="label" translatable="yes">_Hex</property>
+                <property name="use_underline">True</property>
+                <property name="group">register_format_natural</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkRadioMenuItem" id="register_format_decimal">
+                <property name="visible">True</property>
+                <property name="label" translatable="yes">_Decimal</property>
+                <property name="use_underline">True</property>
+                <property name="group">register_format_natural</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkRadioMenuItem" id="register_format_octal">
+                <property name="visible">True</property>
+                <property name="label" translatable="yes">_Octal</property>
+                <property name="use_underline">True</property>
+                <property name="group">register_format_natural</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkRadioMenuItem" id="register_format_binary">
+                <property name="visible">True</property>
+                <property name="label" translatable="yes">_Binary</property>
+                <property name="use_underline">True</property>
+                <property name="group">register_format_natural</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkRadioMenuItem" id="register_format_raw">
+                <property name="visible">True</property>
+                <property name="label" translatable="yes">_Raw</property>
+                <property name="use_underline">True</property>
+                <property name="group">register_format_natural</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="GtkSeparatorMenuItem" id="register_separator2">
+        <property name="visible">True</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkImageMenuItem" id="register_query">
+        <property name="visible">True</property>
+        <property name="label">_Query</property>
+        <property name="use_underline">True</property>
+      </object>
+    </child>
+  </object>
   <object class="GtkMenuItem" id="popup_item">
     <property name="visible">True</property>
     <property name="label" translatable="yes">Debu_g</property>
@@ -1432,6 +1525,25 @@
       <column type="gchararray" utf8_collate="false"/>
     </columns>
   </object>
+  <object class="ScpTreeStore" id="register_store">
+    <property name="sublevels">True</property>
+    <columns>
+      <!-- column-name register_store_path -->
+      <column type="gchararray" utf8_collate="false"/>
+      <!-- column-name register_store_display -->
+      <column type="gchararray" utf8_collate="false"/>
+      <!-- column-name register_store_value -->
+      <column type="gchararray" utf8_collate="false"/>
+      <!-- column-name register_hb_mode -->
+      <column type="gint"/>
+      <!-- column-name register_store_name -->
+      <column type="gchararray" utf8_collate="false"/>
+      <!-- column-name register_store_id -->
+      <column type="gint"/>
+      <!-- column-name register_store_format -->
+      <column type="gint"/>
+    </columns>
+  </object>
   <object class="ScpTreeStore" id="command_store">
     <property name="sublevels">False</property>
     <columns>
@@ -1446,6 +1558,7 @@
   <object class="GtkNotebook" id="debug_panel">
     <property name="visible">True</property>
     <property name="can_focus">True</property>
+    <property name="scrollable">True</property>
     <child>
       <object class="GtkScrolledWindow" id="program_window">
         <property name="visible">True</property>
@@ -1456,7 +1569,6 @@
     <child type="tab">
       <object class="GtkLabel" id="program_terminal_label">
         <property name="visible">True</property>
-        <property name="label" translatable="yes">Program Terminal</property>
       </object>
       <packing>
         <property name="tab_fill">False</property>
@@ -1746,7 +1858,6 @@
     <child type="tab">
       <object class="GtkLabel" id="break_view_label">
         <property name="visible">True</property>
-        <property name="label" translatable="yes">Breakpoints</property>
       </object>
       <packing>
         <property name="position">2</property>
@@ -2061,7 +2172,6 @@
     <child type="tab">
       <object class="GtkLabel" id="debug_console_label">
         <property name="visible">True</property>
-        <property name="label" translatable="yes">Debug Console</property>
       </object>
       <packing>
         <property name="position">7</property>
@@ -2121,6 +2231,52 @@
                 <property name="expand">True</property>
                 <child>
                   <object class="GtkCellRendererText" id="inspect_display"/>
+                  <attributes>
+                    <attribute name="text">1</attribute>
+                  </attributes>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkFrame" id="register_page">
+    <property name="visible">True</property>
+    <property name="can_focus">True</property>
+    <property name="label_xalign">0</property>
+    <property name="shadow_type">in</property>
+    <child>
+      <object class="GtkScrolledWindow" id="register_window">
+        <property name="visible">True</property>
+        <property name="can_focus">True</property>
+        <property name="hscrollbar_policy">automatic</property>
+        <property name="vscrollbar_policy">automatic</property>
+        <child>
+          <object class="GtkTreeView" id="register_view">
+            <property name="can_focus">True</property>
+            <property name="model">register_store</property>
+            <property name="headers_visible">False</property>
+            <property name="headers_clickable">False</property>
+            <child>
+              <object class="GtkTreeViewColumn" id="register_name_column">
+                <property name="resizable">True</property>
+                <property name="sizing">autosize</property>
+                <child>
+                  <object class="GtkCellRendererText" id="register_name"/>
+                  <attributes>
+                    <attribute name="text">4</attribute>
+                  </attributes>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkTreeViewColumn" id="register_display_column">
+                <property name="resizable">True</property>
+                <property name="expand">True</property>
+                <child>
+                  <object class="GtkCellRendererText" id="register_display"/>
                   <attributes>
                     <attribute name="text">1</attribute>
                   </attributes>
@@ -2682,7 +2838,7 @@
                         <property name="spacing">6</property>
                         <child>
                           <object class="GtkCheckButton" id="program_delete_all_items">
-                            <property name="label" translatable="yes">_Delete all breakpoints, watches and inspects</property>
+                            <property name="label" translatable="yes">_Delete all breakpoints, watches, inspects and registers</property>
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
                             <property name="receives_default">False</property>
@@ -3772,13 +3928,17 @@
     <property name="visible">True</property>
     <property name="label" translatable="yes">Inspect</property>
   </object>
+  <object class="GtkLabel" id="register_label">
+    <property name="visible">True</property>
+    <property name="label" translatable="yes">Registers</property>
+  </object>
   <object class="GtkSizeGroup" id="program_size_group">
     <widgets>
-      <widget name="program_load_script_label"/>
-      <widget name="program_working_dir_label"/>
-      <widget name="program_environment_label"/>
-      <widget name="program_arguments_label"/>
       <widget name="program_executable_label"/>
+      <widget name="program_arguments_label"/>
+      <widget name="program_environment_label"/>
+      <widget name="program_working_dir_label"/>
+      <widget name="program_load_script_label"/>
     </widgets>
   </object>
   <object class="GtkSizeGroup" id="inspect_size_group">

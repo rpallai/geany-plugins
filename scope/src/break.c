@@ -683,20 +683,9 @@ void on_break_stopped(GArray *nodes)
 	if (break_async < TRUE)
 	{
 		const char *id = parse_find_value(nodes, "bkptno");
-		const char *disp = parse_find_value(nodes, "disp");
 
-		if (id && disp)
-		{
-			if (!strcmp(disp, "dis"))
-			{
-				GtkTreeIter iter;
-
-				if (store_find(store, &iter, BREAK_ID, id))
-					break_enable(&iter, FALSE);
-			}
-			else if (!strcmp(disp, "del"))
-				break_remove_all(id, FALSE);
-		}
+		if (id && !g_strcmp0(parse_find_value(nodes, "disp"), "del"))
+			break_remove_all(id, FALSE);
 	}
 
 	on_thread_stopped(nodes);
@@ -913,7 +902,7 @@ void on_break_toggle(G_GNUC_UNUSED const MenuItem *menu_item)
 			if (found && found != utils_atoi0(id))
 			{
 				dialogs_show_msgbox(GTK_MESSAGE_INFO,
-					_("There are two or more breakpoints at %s:%d.\n"
+					_("There are two or more breakpoints at %s:%d.\n\n"
 					"Use the breakpoint list to remove the exact one."),
 					doc->file_name, doc_line);
 				return;
@@ -1130,7 +1119,7 @@ static gboolean on_break_query_tooltip(G_GNUC_UNUSED GtkWidget *widget, gint x, 
 		{
 			if (has_tip)
 				g_string_append(text, ", ");
-			g_string_append(text, func);
+			g_string_append_printf(text, "%s()", func);
 			has_tip = TRUE;
 		}
 
